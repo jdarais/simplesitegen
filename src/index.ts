@@ -1,4 +1,5 @@
 import * as glob from 'glob';
+import { map } from 'async';
 
 const fs: any = require('fs');
 const path: any = require('path');
@@ -7,14 +8,14 @@ type PageData = any;
 
 export interface Page {
     data: PageData,
-    render: (data: PageData) => string,
+    render: (data: PageData) => Promise<string>,
     outFile: string
 }
 
 export function createPagesFromFiles(
     filePattern: string,
-    fileToData: (fileContents: string) => PageData,
-    render: (data: PageData) => string,
+    fileToData: (fileContents: string) => Promise<PageData>,
+    render: (data: PageData) => Promise<string>,
     outFile: (data: PageData) => string): Promise<Page[]> {
 
     return new Promise((resolve, reject) => {
@@ -23,36 +24,41 @@ export function createPagesFromFiles(
                 reject(err);
             }
 
-            const pages: Page[] = matches.map(match => {
+            map(matches, (match, cb) => {
                 const contents = fs.readFileSync(match);
 
-                let data: PageData = fileToData(contents);
-
-                const filePath = path.parse(match);
-                data._meta = {
-                    filePath: match,
-                    fileName: filePath.name,
-                    fileDir: filePath.dir,
-                    fileExt: filePath.ext
-                }
-
-                const outPath: string = outFile(data);
-
-                return {
-                    data: data,
-                    render: render,
-                    outFile: outPath
+                fileToData(contents).then((data: PageData) => {
+                    const filePath = path.parse(match);
+                    data._meta = {
+                        filePath: match,
+                        fileName: filePath.name,
+                        fileDir: filePath.dir,
+                        fileExt: filePath.ext
+                    }
+    
+                    const outPath: string = outFile(data);
+    
+                    cb(null, {
+                        data: data,
+                        render: render,
+                        outFile: outPath
+                    });
+                })
+            },
+            (err: Error, pages: Page[]) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(pages);
                 }
             });
-
-            resolve(pages);
         })
     });
 }
 
 export function createPage(
     data: PageData,
-    render: (data: PageData) => string,
+    render: (data: PageData) => Promise<string>,
     outFile: string): Page {
 
     return {
@@ -70,4 +76,15 @@ export function addLinks(pages: Page[]): void {
             next: i < numPages - 1 ? pages[i+1].outFile : null
         };
     }
+}
+
+export function generate(pages: Page[], outDir: string): void {
+    pages.forEach(page => {
+        page.render(page.data).then(renderedContent => {
+            const outPath = path.join(outDir, page.outFile);
+            const outFileDir = path.dirname(outPath);
+            fs.mkdirSync(outFileDir, {recursive: true});
+            fs.writeFileSync(outPath, renderedContent);
+        });
+    });
 }
