@@ -6,6 +6,7 @@ const path: any = require('path');
 const process: any = require('process');
 
 type PageData = any;
+type SiteData = any;
 
 export interface Page {
     data: PageData,
@@ -17,10 +18,18 @@ export interface CreatePagesFromFilesParams {
     filePattern: string,
     fileToData: (fileContents: string) => Promise<PageData>,
     render: (data: PageData) => Promise<string>,
-    getLink: (data: PageData) => string
+    getLink: (data: PageData) => string,
+    siteData?: SiteData
 }
 
-const getDefaultLink: (data: PageData) => string = data => path.join(data._meta.fileDir, data._meta.fileName);
+const defaultSiteData = {
+    baseUrl: '/'
+}
+
+const getDefaultLink: (data: PageData) => string = data => {
+    return data._site.baseUrl
+    + path.join(data._meta.fileDir, data._meta.fileName).split(path.sep).join('/');
+}
 
 export function createPagesFromFiles(params: CreatePagesFromFilesParams): Promise<Page[]> {
 
@@ -28,7 +37,8 @@ export function createPagesFromFiles(params: CreatePagesFromFilesParams): Promis
         rootDir,
         filePattern,
         fileToData,
-        render
+        render,
+        siteData
     } = params;
 
     const getLink = params.getLink || getDefaultLink;
@@ -50,7 +60,11 @@ export function createPagesFromFiles(params: CreatePagesFromFilesParams): Promis
                         fileName: filePath.name,
                         fileDir: filePath.dir,
                         fileExt: filePath.ext
-                    }
+                    };
+                    data._site = {
+                        ...defaultSiteData,
+                        ...siteData
+                    };
     
                     data._meta.link = getLink(data);
     
@@ -71,16 +85,30 @@ export function createPagesFromFiles(params: CreatePagesFromFilesParams): Promis
     });
 }
 
-export function createPage(
-    data: PageData,
-    render: (data: PageData) => Promise<string>,
-    link: string): Page {
+export interface CreatePageParams {
+    data: PageData;
+    render: (data: PageData) => Promise<string>;
+    link: string;
+    siteData?: SiteData;
+}
+
+export function createPage(params: CreatePageParams): Page {
+    const {
+        data,
+        render,
+        link,
+        siteData
+    } = params;
 
     return {
         data: {
             ...data,
             _meta: {
                 link: link
+            },
+            _site: {
+                ...defaultSiteData,
+                ...siteData
             }
         },
         render: render
