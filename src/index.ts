@@ -1,5 +1,5 @@
 import * as glob from 'glob';
-import { map } from 'async';
+import { map, each } from 'async';
 
 const fs: any = require('fs');
 const path: any = require('path');
@@ -151,9 +151,11 @@ export class SiteGenerator {
         });
     }
 
-    generate() {
-        generatePages(this.pages, this.outDir);
-        copyAssets(this.assets, this.outDir);
+    generate(): Promise<void> {
+        return Promise.all([
+            generatePages(this.pages, this.outDir),
+            copyAssets(this.assets, this.outDir)
+        ]).then(() => {});
     }
 }
 
@@ -162,24 +164,46 @@ export interface Asset {
     path: string;
 }
 
-export function copyAssets(assets: Asset[], outDir: string) {
-    assets.forEach(asset => {
-        const fullSourcePath = path.join(asset.basePath, asset.path);
-        const fileContents = fs.readFileSync(fullSourcePath);
-
-        const outPath = path.join(outDir, asset.path);
-        fs.mkdirSync(path.dirname(outPath), {recursive: true});
-        fs.writeFileSync(outPath, fileContents);
+export function copyAssets(assets: Asset[], outDir: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+        each(
+            assets,
+            (asset, cb) => {
+                const fullSourcePath = path.join(asset.basePath, asset.path);
+                const fileContents = fs.readFileSync(fullSourcePath);
+        
+                const outPath = path.join(outDir, asset.path);
+                fs.mkdir(path.dirname(outPath), {recursive: true}, (err: Error) => {
+                    if (err) { reject(err); return; }
+                    fs.writeFile(outPath, fileContents, cb);
+                });
+            },
+            err => {
+                if (err) { reject(err); return; }
+                resolve();
+            }
+        );
     });
 }
 
-export function generatePages(pages: Page[], outDir: string): void {
-    pages.forEach(page => {
-        page.render(page.data).then(renderedContent => {
-            const outFileDir = path.join(outDir, page.data._meta.link);
-            const outPath = path.join(outFileDir, 'index.html');
-            fs.mkdirSync(outFileDir, {recursive: true});
-            fs.writeFileSync(outPath, renderedContent);
-        });
+export function generatePages(pages: Page[], outDir: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+        each(
+            pages,
+            (page, cb) => {
+                page.render(page.data).then(renderedContent => {
+                    const outFileDir = path.join(outDir, page.data._meta.link);
+                    const outPath = path.join(outFileDir, 'index.html');
+                    fs.mkdir(outFileDir, {recursive: true}, (err: Error) => {
+                        if (err) { reject(err); return; }
+                        fs.writeFile(outPath, renderedContent, cb);
+                    });
+                });
+            },
+            err => {
+                if (err) { reject(err); return; }
+                resolve();
+            }
+        );
     });
 }
