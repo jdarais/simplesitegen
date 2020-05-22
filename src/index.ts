@@ -1,5 +1,5 @@
 import * as glob from 'glob';
-import { map, each } from 'async';
+import { map, each, eachSeries } from 'async';
 
 const fs: any = require('fs');
 const path: any = require('path');
@@ -173,7 +173,8 @@ export function copyAssets(assets: Asset[], outDir: string): Promise<void> {
                 const fileContents = fs.readFileSync(fullSourcePath);
         
                 const outPath = path.join(outDir, asset.path);
-                fs.mkdir(path.dirname(outPath), {recursive: true}, (err: Error) => {
+
+                createDir(path.dirname(outPath), (err: any) => {
                     if (err) { reject(err); return; }
                     fs.writeFile(outPath, fileContents, cb);
                 });
@@ -194,7 +195,7 @@ export function generatePages(pages: Page[], outDir: string): Promise<void> {
                 page.render(page.data).then(renderedContent => {
                     const outFileDir = path.join(outDir, page.data._meta.link);
                     const outPath = path.join(outFileDir, 'index.html');
-                    fs.mkdir(outFileDir, {recursive: true}, (err: Error) => {
+                    createDir(outFileDir, (err) => {
                         if (err) { reject(err); return; }
                         fs.writeFile(outPath, renderedContent, cb);
                     });
@@ -206,4 +207,22 @@ export function generatePages(pages: Page[], outDir: string): Promise<void> {
             }
         );
     });
+}
+
+function createDir(dirPath: string, done: (err: any) => void): void {
+    const dirPathArr = dirPath.split(path.sep);
+    const dirsToCreate = dirPathArr.map((_dir, i) => dirPathArr.slice(0,i).join(path.sep));
+    eachSeries(
+        dirsToCreate,
+        (dir, cb) => {
+            fs.mkdir(dir, {recursive: true}, (err: any) => {
+                if (err && err.code !== 'EEXIST') {
+                    cb(err);
+                    return;
+                }
+                cb();
+            });
+        },
+        done
+    );
 }
