@@ -152,10 +152,9 @@ export class SiteGenerator {
     }
 
     generate(): Promise<void> {
-        return Promise.all([
-            generatePages(this.pages, this.outDir),
-            copyAssets(this.assets, this.outDir)
-        ]).then(() => {});
+        return generatePages(this.pages, this.outDir).then(() =>
+            copyAssets(this.assets, this.outDir));
+
     }
 }
 
@@ -211,11 +210,12 @@ export function generatePages(pages: Page[], outDir: string): Promise<void> {
 
 function createDir(dirPath: string, done: (err: any) => void): void {
     const dirPathArr = dirPath.split(path.sep);
-    const dirsToCreate = dirPathArr.map((_dir, i) => dirPathArr.slice(0,i).join(path.sep));
+    const dirsToCreate = dirPathArr.map((_dir, i) => dirPathArr.slice(0,i+1).join(path.sep));
     eachSeries(
         dirsToCreate,
         (dir, cb) => {
             fs.mkdir(dir, {recursive: true}, (err: any) => {
+                // Only pass along the error if it's not that the directory already exists
                 if (err && err.code !== 'EEXIST') {
                     cb(err);
                     return;
