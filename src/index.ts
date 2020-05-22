@@ -100,17 +100,19 @@ export function createPage(params: CreatePageParams): Page {
         siteData
     } = params;
 
+    let pageData = {
+        ...data,
+        _meta: {},
+        _site: {
+            ...defaultSiteData,
+            ...siteData
+        }
+    };
+
+    pageData._meta.link = pageData._site.baseUrl + link;
+
     return {
-        data: {
-            ...data,
-            _meta: {
-                link: link
-            },
-            _site: {
-                ...defaultSiteData,
-                ...siteData
-            }
-        },
+        data: pageData,
         render: render
     };
 }
@@ -118,30 +120,60 @@ export function createPage(params: CreatePageParams): Page {
 export function addSequenceLinks(pages: Page[]): void {
     const numPages = pages.length;
     for(let i = 0; i < numPages; ++i) {
-        pages[i].data._meta.prev = i > 0 ? pages[i-1].data._meta.link : null,
-        pages[i].data._meta.next = i < numPages - 1 ? pages[i+1].data._meta.link : null
+        pages[i].data._meta.prev = i > 0 ? pages[i-1].data : null,
+        pages[i].data._meta.next = i < numPages - 1 ? pages[i+1].data : null
     }
 }
 
-export function copyStaticAssets(sourceDir: string, pattern: string, destDir: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-        glob(pattern, {cwd: sourceDir}, (err, matches) => {
-            if (err != null) {
-                reject(err);
-            }
+export class SiteGenerator {
+    private pages: Page[] = [];
+    private assets: Asset[] = [];
+    private outDir: string;
 
-            matches.forEach(match => {
-                const sourcePath = path.join(sourceDir, match);
-                const contents = fs.readFileSync(sourcePath);
-                const destPath = path.join(destDir, match);
-                fs.mkdirSync(path.dirname(destPath), {recursive: true});
-                fs.writeFileSync(destPath, contents);
-            });
+    constructor(outDir: string) {
+        this.outDir = outDir;
+    }
+
+    addPages(pages: Page) {
+        this.pages = this.pages.concat(pages);
+    }
+
+    addAssets(sourceDir: string, pattern: string) {
+        const matches = glob.sync(pattern, {cwd: sourceDir});
+
+        matches.forEach(match => {
+            if (!fs.statSync(path.join(sourceDir, match)).isDirectory()) {
+                this.assets.push({
+                    basePath: sourceDir,
+                    path: match
+                });
+            }
         });
+    }
+
+    generate() {
+        generatePages(this.pages, this.outDir);
+        copyAssets(this.assets, this.outDir);
+    }
+}
+
+export interface Asset {
+    basePath: string;
+    path: string;
+}
+
+export function copyAssets(assets: Asset[], outDir: string) {
+    assets.forEach(asset => {
+        const fullSourcePath = path.join(asset.basePath, asset.path);
+        const fileContents = fs.readFileSync(fullSourcePath);
+
+        const outPath = path.join(outDir, asset.path);
+        fs.mkdirSync(path.dirname(outPath), {recursive: true});
+        fs.writeFileSync(outPath, fileContents);
     });
 }
 
-export function generate(pages: Page[], outDir: string): void {
+export function generatePages(pages: Page[], outDir: string): void {
     pages.forEach(page => {
         page.render(page.data).then(renderedContent => {
             const outFileDir = path.join(outDir, page.data._meta.link);
