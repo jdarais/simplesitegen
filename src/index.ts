@@ -9,17 +9,17 @@ type PageData = any;
 type SiteData = any;
 
 export interface Page {
-    data: PageData,
-    render: (data: PageData) => Promise<string>
+    data: PageData;
+    render: (data: PageData) => Promise<string>;
 }
 
 export interface CreatePagesFromFilesParams {
-    rootDir?: string,
-    filePattern: string,
-    fileToData: (fileContents: string) => Promise<PageData>,
-    render: (data: PageData) => Promise<string>,
-    getLink: (data: PageData) => string,
-    siteData?: SiteData
+    rootDir?: string;
+    filePattern: string;
+    fileToData: (fileContents: string) => Promise<PageData>;
+    render: (data: PageData) => Promise<string>;
+    getLink: (data: PageData) => string;
+    siteData?: SiteData;
 }
 
 const defaultSiteData = {
@@ -28,7 +28,7 @@ const defaultSiteData = {
 
 const getDefaultLink: (data: PageData) => string = data => {
     return data._site.baseUrl
-    + path.join(data._meta.fileDir, data._meta.fileName).split(path.sep).join('/');
+    + path.join(data._meta.fileDir, data._meta.fileName).split(path.sep).join('/') + '/index.html';
 }
 
 export function createPagesFromFiles(params: CreatePagesFromFilesParams): Promise<Page[]> {
@@ -192,9 +192,8 @@ export function generatePages(pages: Page[], outDir: string): Promise<void> {
             pages,
             (page, cb) => {
                 page.render(page.data).then(renderedContent => {
-                    const outFileDir = path.join(outDir, page.data._meta.link);
-                    const outPath = path.join(outFileDir, 'index.html');
-                    createDir(outFileDir, (err) => {
+                    const outPath = path.join(outDir, page.data._meta.link);
+                    createDir(path.dirname(outPath), (err) => {
                         if (err) { reject(err); return; }
                         fs.writeFile(outPath, renderedContent, cb);
                     });
