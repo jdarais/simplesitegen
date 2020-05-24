@@ -9,14 +9,14 @@ export interface CreatePagesFromFilesParams {
     filePattern: string;
     fileToData: (fileContents: string) => Promise<PageData>;
     render: (data: PageData) => Promise<string>;
-    getLink: (data: PageData) => string;
+    getLocation: (data: PageData) => string;
     siteData?: SiteData;
 }
 export declare function createPagesFromFiles(params: CreatePagesFromFilesParams): Promise<Page[]>;
 export interface CreatePageParams {
     data: PageData;
     render: (data: PageData) => Promise<string>;
-    link: string;
+    location: string;
     siteData?: SiteData;
 }
 export declare function createPage(params: CreatePageParams): Page;

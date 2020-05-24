@@ -18,7 +18,7 @@ export interface CreatePagesFromFilesParams {
     filePattern: string;
     fileToData: (fileContents: string) => Promise<PageData>;
     render: (data: PageData) => Promise<string>;
-    getLink: (data: PageData) => string;
+    getLocation: (data: PageData) => string;
     siteData?: SiteData;
 }
 
@@ -26,9 +26,18 @@ const defaultSiteData = {
     baseUrl: '/'
 }
 
-const getDefaultLink: (data: PageData) => string = data => {
+const getDefaultLocation: (data: PageData) => string = data => {
     return data._site.baseUrl
     + path.join(data._meta.fileDir, data._meta.fileName).split(path.sep).join('/') + '/index.html';
+}
+
+const getLinkFromLocation: (location: string) => string = location => {
+    const result = /(.*\/)index.html$/.exec(location);
+    if (result) {
+        return result[1];
+    } else {
+        return location;
+    }
 }
 
 export function createPagesFromFiles(params: CreatePagesFromFilesParams): Promise<Page[]> {
@@ -41,7 +50,7 @@ export function createPagesFromFiles(params: CreatePagesFromFilesParams): Promis
         siteData
     } = params;
 
-    const getLink = params.getLink || getDefaultLink;
+    const getLocation = params.getLocation || getDefaultLocation;
 
     return new Promise((resolve, reject) => {
         const cwd = rootDir !== undefined ? path.join(process.cwd(), rootDir) : process.cwd();
@@ -66,7 +75,8 @@ export function createPagesFromFiles(params: CreatePagesFromFilesParams): Promis
                         ...siteData
                     };
     
-                    data._meta.link = getLink(data);
+                    data._meta.location = getLocation(data);
+                    data._meta.link = getLinkFromLocation(data._meta.location);
     
                     cb(null, {
                         data: data,
@@ -88,7 +98,7 @@ export function createPagesFromFiles(params: CreatePagesFromFilesParams): Promis
 export interface CreatePageParams {
     data: PageData;
     render: (data: PageData) => Promise<string>;
-    link: string;
+    location: string;
     siteData?: SiteData;
 }
 
@@ -96,7 +106,7 @@ export function createPage(params: CreatePageParams): Page {
     const {
         data,
         render,
-        link,
+        location,
         siteData
     } = params;
 
@@ -109,7 +119,8 @@ export function createPage(params: CreatePageParams): Page {
         }
     };
 
-    pageData._meta.link = pageData._site.baseUrl + link;
+    pageData._meta.location = pageData._site.baseUrl + location;
+    pageData._meta.link = getLinkFromLocation(pageData._meta.location);
 
     return {
         data: pageData,
@@ -192,7 +203,7 @@ export function generatePages(pages: Page[], outDir: string): Promise<void> {
             pages,
             (page, cb) => {
                 page.render(page.data).then(renderedContent => {
-                    const outPath = path.join(outDir, page.data._meta.link);
+                    const outPath = path.join(outDir, page.data._meta.location);
                     createDir(path.dirname(outPath), (err) => {
                         if (err) { reject(err); return; }
                         fs.writeFile(outPath, renderedContent, cb);
