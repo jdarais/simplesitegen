@@ -13,6 +13,14 @@ export interface CreatePagesFromFilesParams {
     siteData?: SiteData;
 }
 export declare function createPagesFromFiles(params: CreatePagesFromFilesParams): Promise<Page[]>;
+export interface CreatePageSequenceParams {
+    data: PageData[];
+    render: (data: PageData) => Promise<string>;
+    baseLocation: string;
+    fileName?: string;
+    siteData?: SiteData;
+}
+export declare function createPageSequence(params: CreatePageSequenceParams): Page[];
 export interface CreatePageParams {
     data: PageData;
     render: (data: PageData) => Promise<string>;

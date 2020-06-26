@@ -95,6 +95,52 @@ export function createPagesFromFiles(params: CreatePagesFromFilesParams): Promis
     });
 }
 
+export interface CreatePageSequenceParams {
+    data: PageData[];
+    render: (data: PageData) => Promise<string>;
+    baseLocation: string;
+    fileName?: string;
+    siteData?: SiteData;
+}
+
+export function createPageSequence(params: CreatePageSequenceParams): Page[] {
+    const {
+        data,
+        render,
+        siteData
+    } = params;
+
+    let baseLocation = params.baseLocation;
+    if (baseLocation[baseLocation.length - 1] != '/') {
+        baseLocation = baseLocation + '/';
+    }
+
+    const fileName = params.fileName || 'index.html';
+
+    let pageData = data.map(d => ({
+        ...d,
+        _meta: {},
+        _site: {
+            ...defaultSiteData,
+            ...siteData
+        }
+    }));
+
+    pageData.forEach((d, i) => {
+        d._meta.location = d._site.baseUrl + baseLocation + (i > 0 ? `${i}/` : '') + fileName;
+        d._meta.link = getLinkFromLocation(d._meta.location);
+    });
+
+    let pages = pageData.map(d => ({
+        data: d,
+        render: render
+    }));
+
+    addSequenceLinks(pages);
+
+    return pages;
+}
+
 export interface CreatePageParams {
     data: PageData;
     render: (data: PageData) => Promise<string>;
