@@ -1,5 +1,7 @@
 import * as glob from 'glob';
 import { map, each, eachSeries } from 'async';
+import * as _ from 'underscore';
+import G = require('glob');
 
 const fs: any = require('fs');
 const path: any = require('path');
@@ -17,13 +19,16 @@ export interface CreatePagesFromFilesParams {
     rootDir?: string;
     filePattern: string;
     fileToData: (fileContents: string) => Promise<PageData>;
-    render: (data: PageData) => Promise<string>;
     getLocation: (data: PageData) => string;
     siteData?: SiteData;
 }
 
 const defaultSiteData = {
     baseUrl: '/'
+}
+
+const ensureEndsWithSlash: (url: string) => string = url => {
+    return url[url.length - 1] === '/' ? url : url + '/';
 }
 
 const getDefaultLocation: (data: PageData) => string = data => {
@@ -40,13 +45,28 @@ const getLinkFromLocation: (location: string) => string = location => {
     }
 }
 
-export function createPagesFromFiles(params: CreatePagesFromFilesParams): Promise<Page[]> {
+export function createGroups<T, G>(arr: Array<T>, groupAssignment: (item: T) => G | Array<G>): Map<G, Array<T>> {
+    let groups: Map<G, Array<T>> = new Map();
+    arr.forEach(item => {
+        const group = groupAssignment(item);
+        const groupArr = Array.isArray(group) ? group : [group];
+        groupArr.forEach(g => {
+            if (!groups.has(g)) {
+                groups.set(g, []);
+            }
+            groups.get(g).push(item);
+        });
+    });
+
+    return groups;
+}
+
+export function createPagesFromFiles(params: CreatePagesFromFilesParams): Promise<PageData[]> {
 
     const {
         rootDir,
         filePattern,
         fileToData,
-        render,
         siteData
     } = params;
 
@@ -78,13 +98,10 @@ export function createPagesFromFiles(params: CreatePagesFromFilesParams): Promis
                     data._meta.location = getLocation(data);
                     data._meta.link = getLinkFromLocation(data._meta.location);
     
-                    cb(null, {
-                        data: data,
-                        render: render
-                    });
+                    cb(null, data);
                 })
             },
-            (err: Error, pages: Page[]) => {
+            (err: Error, pages: PageData[]) => {
                 if (err) {
                     reject(err);
                 } else {
@@ -97,24 +114,18 @@ export function createPagesFromFiles(params: CreatePagesFromFilesParams): Promis
 
 export interface CreatePageSequenceParams {
     data: PageData[];
-    render: (data: PageData) => Promise<string>;
     baseLocation: string;
     fileName?: string;
     siteData?: SiteData;
 }
 
-export function createPageSequence(params: CreatePageSequenceParams): Page[] {
+export function createPageSequence(params: CreatePageSequenceParams): PageData[] {
     const {
         data,
-        render,
         siteData
     } = params;
 
-    let baseLocation = params.baseLocation;
-    if (baseLocation[baseLocation.length - 1] != '/') {
-        baseLocation = baseLocation + '/';
-    }
-
+    const baseLocation = ensureEndsWithSlash(params.baseLocation);
     const fileName = params.fileName || 'index.html';
 
     let pageData = data.map(d => ({
@@ -131,19 +142,53 @@ export function createPageSequence(params: CreatePageSequenceParams): Page[] {
         d._meta.link = getLinkFromLocation(d._meta.location);
     });
 
-    let pages = pageData.map(d => ({
-        data: d,
-        render: render
-    }));
+    addSequenceLinks(pageData);
 
-    addSequenceLinks(pages);
+    return pageData;
+}
 
-    return pages;
+export interface CreateIndexParams {
+    pages: PageData[];
+    createIndexPageData: (pageItems: PageData[]) => PageData;
+    itemsPerPage?: number;
+    baseLocation: string;
+    fileName?: string;
+    siteData?: SiteData;
+}
+
+export function createIndex(params: CreateIndexParams): PageData[] {
+    const {
+        pages,
+        createIndexPageData,
+        siteData
+    } = params;
+
+    const baseLocation = ensureEndsWithSlash(params.baseLocation);
+    const itemsPerPage = params.itemsPerPage !== undefined ? params.itemsPerPage : pages.length;
+    const fileName = params.fileName || 'index.html';
+
+    let indexPagesData = _.chunk(pages, itemsPerPage).map(createIndexPageData);
+    indexPagesData.forEach((indexPageData, i) => {
+        indexPageData._site = {
+            ...defaultSiteData,
+            ...siteData
+        };
+
+        const location = indexPageData._site.baseUrl + baseLocation + (i > 0 ? `${i}/` : '') + fileName;
+
+        indexPageData._meta = {
+            location: location,
+            link: getLinkFromLocation(location)
+        }
+    });
+
+    addSequenceLinks(indexPagesData);
+
+    return indexPagesData;
 }
 
 export interface CreatePageParams {
     data: PageData;
-    render: (data: PageData) => Promise<string>;
     location: string;
     siteData?: SiteData;
 }
@@ -151,7 +196,6 @@ export interface CreatePageParams {
 export function createPage(params: CreatePageParams): Page {
     const {
         data,
-        render,
         location,
         siteData
     } = params;
@@ -168,17 +212,14 @@ export function createPage(params: CreatePageParams): Page {
     pageData._meta.location = pageData._site.baseUrl + location;
     pageData._meta.link = getLinkFromLocation(pageData._meta.location);
 
-    return {
-        data: pageData,
-        render: render
-    };
+    return pageData;
 }
 
-export function addSequenceLinks(pages: Page[]): void {
+export function addSequenceLinks(pages: PageData[]): void {
     const numPages = pages.length;
     for(let i = 0; i < numPages; ++i) {
-        pages[i].data._meta.prev = i > 0 ? pages[i-1].data : null,
-        pages[i].data._meta.next = i < numPages - 1 ? pages[i+1].data : null
+        pages[i]._meta.prev = i > 0 ? pages[i-1] : null,
+        pages[i]._meta.next = i < numPages - 1 ? pages[i+1] : null
     }
 }
 
@@ -191,8 +232,8 @@ export class SiteGenerator {
         this.outDir = outDir;
     }
 
-    addPages(pages: Page) {
-        this.pages = this.pages.concat(pages);
+    addPages(pages: PageData[], render: (data: PageData) => Promise<string>) {
+        this.pages = this.pages.concat(pages.map(data => ({data: data, render: render})));
     }
 
     addAssets(sourceDir: string, pattern: string) {

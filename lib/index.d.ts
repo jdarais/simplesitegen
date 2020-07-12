@@ -8,33 +8,40 @@ export interface CreatePagesFromFilesParams {
     rootDir?: string;
     filePattern: string;
     fileToData: (fileContents: string) => Promise<PageData>;
-    render: (data: PageData) => Promise<string>;
     getLocation: (data: PageData) => string;
     siteData?: SiteData;
 }
-export declare function createPagesFromFiles(params: CreatePagesFromFilesParams): Promise<Page[]>;
+export declare function createGroups<T, G>(arr: Array<T>, groupAssignment: (item: T) => G | Array<G>): Map<G, Array<T>>;
+export declare function createPagesFromFiles(params: CreatePagesFromFilesParams): Promise<PageData[]>;
 export interface CreatePageSequenceParams {
     data: PageData[];
-    render: (data: PageData) => Promise<string>;
     baseLocation: string;
     fileName?: string;
     siteData?: SiteData;
 }
-export declare function createPageSequence(params: CreatePageSequenceParams): Page[];
+export declare function createPageSequence(params: CreatePageSequenceParams): PageData[];
+export interface CreateIndexParams {
+    pages: PageData[];
+    createIndexPageData: (pageItems: PageData[]) => PageData;
+    itemsPerPage?: number;
+    baseLocation: string;
+    fileName?: string;
+    siteData?: SiteData;
+}
+export declare function createIndex(params: CreateIndexParams): PageData[];
 export interface CreatePageParams {
     data: PageData;
-    render: (data: PageData) => Promise<string>;
     location: string;
     siteData?: SiteData;
 }
 export declare function createPage(params: CreatePageParams): Page;
-export declare function addSequenceLinks(pages: Page[]): void;
+export declare function addSequenceLinks(pages: PageData[]): void;
 export declare class SiteGenerator {
     private pages;
     private assets;
     private outDir;
     constructor(outDir: string);
-    addPages(pages: Page): void;
+    addPages(pages: PageData[], render: (data: PageData) => Promise<string>): void;
     addAssets(sourceDir: string, pattern: string): void;
     generate(): Promise<void>;
 }
