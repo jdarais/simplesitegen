@@ -1,9 +1,5 @@
 declare type PageData = any;
 declare type SiteData = any;
-export interface Page {
-    data: PageData;
-    render: (data: PageData) => Promise<string>;
-}
 export interface CreatePagesFromFilesParams {
     rootDir?: string;
     filePattern: string;
@@ -34,7 +30,7 @@ export interface CreatePageParams {
     location: string;
     siteData?: SiteData;
 }
-export declare function createPage(params: CreatePageParams): Page;
+export declare function createPage(params: CreatePageParams): PageData;
 export declare function addSequenceLinks(pages: PageData[]): void;
 export declare class SiteGenerator {
     private pages;
@@ -45,10 +41,4 @@ export declare class SiteGenerator {
     addAssets(sourceDir: string, pattern: string): void;
     generate(): Promise<void>;
 }
-export interface Asset {
-    basePath: string;
-    path: string;
-}
-export declare function copyAssets(assets: Asset[], outDir: string): Promise<void>;
-export declare function generatePages(pages: Page[], outDir: string): Promise<void>;
 export {};

@@ -77,7 +77,7 @@ export function createPagesFromFiles(params: CreatePagesFromFilesParams): Promis
             map(matches, (match, cb) => {
                 const contents = fs.readFileSync(path.join(rootDir, match));
 
-                fileToData(contents).then((data: PageData) => {
+                fileToData(contents.toString()).then((data: PageData) => {
                     const filePath = path.parse(match);
                     data._meta = {
                         filePath: match,
