@@ -25,6 +25,7 @@
     "typescript": "^3.9.2"
   },
   "dependencies": {
+    "@types/node": "^14.6.0",
     "async": "^3.2.0",
     "glob": "^7.1.6",
     "underscore": "^1.10.2"

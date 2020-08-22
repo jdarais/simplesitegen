@@ -3,17 +3,12 @@ import { map, each, eachSeries } from 'async';
 import * as _ from 'underscore';
 import G = require('glob');
 
-const fs: any = require('fs');
-const path: any = require('path');
-const process: any = require('process');
+import fs = require('fs');
+import path = require('path');
+import process = require('process');
 
 type PageData = any;
 type SiteData = any;
-
-export interface Page {
-    data: PageData;
-    render: (data: PageData) => Promise<string>;
-}
 
 export interface CreatePagesFromFilesParams {
     rootDir?: string;
@@ -193,7 +188,7 @@ export interface CreatePageParams {
     siteData?: SiteData;
 }
 
-export function createPage(params: CreatePageParams): Page {
+export function createPage(params: CreatePageParams): PageData {
     const {
         data,
         location,
@@ -221,6 +216,11 @@ export function addSequenceLinks(pages: PageData[]): void {
         pages[i]._meta.prev = i > 0 ? pages[i-1] : null,
         pages[i]._meta.next = i < numPages - 1 ? pages[i+1] : null
     }
+}
+
+interface Page {
+    data: PageData;
+    render: (data: PageData) => Promise<string>;
 }
 
 export class SiteGenerator {
@@ -256,12 +256,12 @@ export class SiteGenerator {
     }
 }
 
-export interface Asset {
+interface Asset {
     basePath: string;
     path: string;
 }
 
-export function copyAssets(assets: Asset[], outDir: string): Promise<void> {
+function copyAssets(assets: Asset[], outDir: string): Promise<void> {
     return new Promise((resolve, reject) => {
         each(
             assets,
@@ -284,7 +284,7 @@ export function copyAssets(assets: Asset[], outDir: string): Promise<void> {
     });
 }
 
-export function generatePages(pages: Page[], outDir: string): Promise<void> {
+function generatePages(pages: Page[], outDir: string): Promise<void> {
     return new Promise((resolve, reject) => {
         each(
             pages,
