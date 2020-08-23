@@ -7,6 +7,8 @@ import fs = require('fs');
 import path = require('path');
 import process = require('process');
 
+export const parseMarkdown = require('./markdown').parseMarkdown;
+
 type PageData = any;
 type SiteData = any;
 

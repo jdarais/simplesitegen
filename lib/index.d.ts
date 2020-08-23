@@ -1,3 +1,4 @@
+export declare const parseMarkdown: any;
 declare type PageData = any;
 declare type SiteData = any;
 export interface CreatePagesFromFilesParams {
