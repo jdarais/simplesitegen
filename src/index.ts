@@ -144,7 +144,10 @@ export function createPageSequence(params: CreatePageSequenceParams): PageData[]
         siteData
     } = params;
 
-    const baseLocation = ensureEndsWithSlash(params.baseLocation);
+    const baseLocation = (params.baseLocation.length === 0 || params.baseLocation === '/') ?
+        '' :
+        ensureEndsWithSlash(params.baseLocation);
+
     const fileName = params.fileName || 'index.html';
 
     let pageData = data.map(d => ({
@@ -192,7 +195,10 @@ export function createIndex(params: CreateIndexParams): PageData[] {
         siteData
     } = params;
 
-    const baseLocation = ensureEndsWithSlash(params.baseLocation);
+    const baseLocation = (params.baseLocation.length === 0 || params.baseLocation === '/') ?
+        '' :
+        ensureEndsWithSlash(params.baseLocation);
+
     const itemsPerPage = params.itemsPerPage !== undefined ? params.itemsPerPage : pages.length;
     const fileName = params.fileName || 'index.html';
 
