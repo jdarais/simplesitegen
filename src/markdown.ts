@@ -6,6 +6,9 @@ import frontMatter = require('remark-frontmatter');
 const rehypeFormat: any = require('rehype-format');
 const smartypants: any = require('@silvenon/remark-smartypants');
 
+import { Remarkable } from 'remarkable';
+import * as matter from 'gray-matter';
+
 import yaml = require('js-yaml');
 
 export const getYaml = (cb: (v: any) => void) => {
@@ -25,26 +28,16 @@ export const getYaml = (cb: (v: any) => void) => {
 }
 
 export const parseMarkdown = (fileContent: string) => {
-    let frontmatter: any;
+    const file = matter(fileContent);
 
-    return new Promise((resolve, reject) => {
-        unified()
-        .use(remarkParse, )
-        .use(frontMatter, ['yaml'])
-        .use(getYaml, yaml => { frontmatter = yaml })
-        .use(smartypants)
-        .use(remark2rehype)
-        .use(rehypeFormat)
-        .use(rehypeStringify)
-        .process(fileContent, (error, result) => {
-            if (error) {
-                reject(error);
-            } else {
-                resolve({
-                    ...frontmatter,
-                    body: result.contents
-                });
-            }
-        });
+    const md = new Remarkable({
+        html: true,
+        typographer: true
+    });
+    const body = md.render(file.content);
+
+    return Promise.resolve({
+        ...file.data,
+        body: body
     });
 }
